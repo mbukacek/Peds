@@ -62,14 +62,14 @@ def calculate_detector_means(positions_nearest, positions, detector):
     return records_det
 
 
-def run_regression(records_det, model, intercept):
+def run_regression(records_det, experimental_code, experimental_round, model, intercept):
     
     if intercept:
     
         result = sm.ols(formula = model, data = records_det).fit()
 
         regress_summary = pd.DataFrame({'experiment': experimental_code, 
-                                    'exp_round': experimental_rounds[rn], 
+                                    'exp_round': experimental_round, 
                                     'model': model, 
                                     'intercept': result.params[0],
                                     'beta': result.params[1],
@@ -87,7 +87,7 @@ def run_regression(records_det, model, intercept):
         result = sm.ols(formula = model, data = records_det).fit()
 
         regress_summary = pd.DataFrame({'experiment': experimental_code, 
-                                    'exp_round': experimental_rounds[rn], 
+                                    'exp_round': experimental_round, 
                                     'model': model, 
                                     'intercept': np.nan,
                                     'beta': result.params[0],
@@ -103,9 +103,37 @@ def run_regression(records_det, model, intercept):
     #print(result.summary())
     
     return regress_summary
+  
+
+def regress_all_models(regress_summary_all, records_det, experimental_code, experimental_round):
+    
+    regress_summary = run_regression(records_det, experimental_code, experimental_round, model = 'density_mean ~ mindist_inv_mean', intercept = True)
+    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)    
+    regress_summary = run_regression(records_det, experimental_code, experimental_round, model = 'density_mean ~ mindist_inv2_mean', intercept = True)
+    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)  
+    regress_summary = run_regression(records_det, experimental_code, experimental_round, model = 'density_mean ~ mindist_mean_inv', intercept = True)
+    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)  
+    regress_summary = run_regression(records_det, experimental_code, experimental_round, model = 'density_mean ~ mindist_mean_inv2', intercept = True)
+    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)  
+    regress_summary = run_regression(records_det, experimental_code, experimental_round, model = 'density_mean ~ mindist_inv_mean', intercept = False)
+    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)    
+    regress_summary = run_regression(records_det, experimental_code, experimental_round, model = 'density_mean ~ mindist_inv2_mean', intercept = False)
+    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)  
+    regress_summary = run_regression(records_det, experimental_code, experimental_round, model = 'density_mean ~ mindist_mean_inv', intercept = False)
+    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)  
+    regress_summary = run_regression(records_det, experimental_code, experimental_round, model = 'density_mean ~ mindist_mean_inv2', intercept = False)
+    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)  
+    
+    regress_summary = run_regression(records_det, experimental_code, experimental_round, model = 'density_mean_log ~ mindist_mean_log', intercept = True)
+    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)  
+    regress_summary = run_regression(records_det, experimental_code, experimental_round, model = 'density_mean_log ~ mindist_log_mean', intercept = True)
+    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True) 
+    
+    return regress_summary_all
 
 
 def fit_model(regress_summary_all, experimental_round, model, model_mindist):
+    
     beta = regress_summary_all[(regress_summary_all.exp_round == experimental_round) 
                             & (regress_summary_all.model == model)].beta
     beta.reset_index(inplace = True, drop = True)
@@ -123,7 +151,38 @@ def fit_model(regress_summary_all, experimental_round, model, model_mindist):
         model_density = np.nan
     
     return model_density
+
+
+def plot_fits(records_det, regress_summary_all, experimental_round):    
     
+    model_mindist = np.arange(30, 170, 1)
+
+    # TO DO : normalize time for vizualization
+    # TO DO : use triangles for 25 peds
+
+    img = plt.scatter(1/records_det.mindist_inv_mean, records_det.density_mean, c = records_det.time, 
+                      label = 'density vs mindist: detector', alpha = 0.5, s = 20)
+    
+    plt.colorbar(img)
+
+    model = 'density_mean ~ mindist_inv2_mean'
+    model_density = fit_model(regress_summary_all, experimental_round, model, model_mindist)
+    plt.plot(model_mindist, model_density, 'r-', label = model)
+
+    model = 'density_mean ~ mindist_inv_mean'
+    model_density = fit_model(regress_summary_all, experimental_round, model, model_mindist)
+    plt.plot(model_mindist, model_density, 'g-', label = model)
+
+    plt.title(experimental_round)
+    plt.xlabel('mindist vedge detector mean [cm]')
+    plt.ylabel('voronoi density detector mean [ped/m2]')
+    plt.xlim(20, 200)
+    plt.ylim(-0.5, 7.5)
+    plt.legend()
+    plt.show()
+
+    return img
+
 
 
 #-----------------------------------#
@@ -135,25 +194,27 @@ data_folder = r'C:\Users\admin\Documents\MyDoc\Aktivity\A_pedestrian_dimension\P
 experimental_code = r'\bottleneck'
 experimental_rounds = ['_25ped_1', '_25ped_2','_25ped_3','_43ped_1','_43ped_2','_43ped_3','_43ped_4','_43ped_5']
 
-valid_time = [[0, 17.5], [4, 22], [15, 32], [3, 32], [3, 33], [8, 36], [3, 30], [2, 29]]
+valid_time = [[0, 17.5], [4, 19], [15, 32], [3, 32], [3, 33], [8, 36], [3, 30], [2, 29]]
 
 detector = [0, 150, -75, 75]       # x_1, x_2, y_1, y_2
 attractor = [0, 0]                 # x, y
 vedge_angle = np.pi/3              # 60 degree left and right
 
 regress_summary_all = pd.DataFrame()
+records_det_all = pd.DataFrame() 
+
 
        
 
-
 #-----------------------------------#
-#              ANALYSIS             # 
+#        ANALYSIS OF ROUNDS         # 
 #-----------------------------------#
-
 
 rep = range(len(experimental_rounds))
  
 for rn in rep:
+
+    print('   proccessing round: ' + experimental_rounds[rn])    
 
     # DATA PREPARATION 
     full_file_name = data_folder + experimental_code + experimental_rounds[rn] + '.csv'
@@ -171,56 +232,24 @@ for rn in rep:
     
     records_det = records_det[(records_det.time > valid_time[rn][0]) & (records_det.time < valid_time[rn][1])]
 
+    records_det['round'] = experimental_rounds[rn]
+    records_det_all = records_det_all.append(records_det, ignore_index = True)  
+
     # MODELS
-    regress_summary = run_regression(records_det, model = 'density_mean ~ mindist_inv_mean', intercept = True)
-    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)    
-    regress_summary = run_regression(records_det, model = 'density_mean ~ mindist_inv2_mean', intercept = True)
-    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)  
-    regress_summary = run_regression(records_det, model = 'density_mean ~ mindist_mean_inv', intercept = True)
-    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)  
-    regress_summary = run_regression(records_det, model = 'density_mean ~ mindist_mean_inv2', intercept = True)
-    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)  
-    regress_summary = run_regression(records_det, model = 'density_mean ~ mindist_inv_mean', intercept = False)
-    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)    
-    regress_summary = run_regression(records_det, model = 'density_mean ~ mindist_inv2_mean', intercept = False)
-    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)  
-    regress_summary = run_regression(records_det, model = 'density_mean ~ mindist_mean_inv', intercept = False)
-    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)  
-    regress_summary = run_regression(records_det, model = 'density_mean ~ mindist_mean_inv2', intercept = False)
-    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)  
-    
-    regress_summary = run_regression(records_det, model = 'density_mean_log ~ mindist_mean_log', intercept = True)
-    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)  
-    regress_summary = run_regression(records_det, model = 'density_mean_log ~ mindist_log_mean', intercept = True)
-    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True) 
+    regress_summary_all = regress_all_models(regress_summary_all, records_det, experimental_code, experimental_round = experimental_rounds[rn])
 
     # FIT CURVE AND PLOT
+    plot_fits(records_det, regress_summary_all, experimental_round = experimental_rounds[rn])
     
-    experimental_round = experimental_rounds[rn]
     
-    model_mindist = np.arange(30, 170, 1)
-
-    plt.scatter(1/records_det.mindist_inv_mean, records_det.density_mean, label = 'density vs mindist: detector', alpha = 0.5, s = 20)
-
-    model = 'density_mean ~ mindist_inv2_mean'
-    model_density = fit_model(regress_summary_all, experimental_round, model, model_mindist)
-    plt.plot(model_mindist, model_density, 'r-', label = model)
-
-    model = 'density_mean ~ mindist_inv_mean'
-    model_density = fit_model(regress_summary_all, experimental_round, model, model_mindist)
-    plt.plot(model_mindist, model_density, 'g-', label = model)
-
-    plt.legend()
-    plt.show()
-
-
 
 #-----------------------------------#
-#               PLOTS               # 
+#         POSTPROCESSING            # 
 #-----------------------------------#
 
+regress_summary_all = regress_all_models(regress_summary_all, records_det_all, experimental_code, experimental_round = 'all')
 
-
+plot_fits(records_det_all, regress_summary_all, experimental_round = 'all')
 
 
 
