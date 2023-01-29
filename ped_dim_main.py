@@ -105,6 +105,26 @@ def run_regression(records_det, model, intercept):
     return regress_summary
 
 
+def fit_model(regress_summary_all, experimental_round, model, model_mindist):
+    beta = regress_summary_all[(regress_summary_all.exp_round == experimental_round) 
+                            & (regress_summary_all.model == model)].beta
+    beta.reset_index(inplace = True, drop = True)
+    beta = beta[0]
+    intercept = regress_summary_all[(regress_summary_all.exp_round == experimental_round) 
+                            & (regress_summary_all.model == model)].intercept
+    intercept.reset_index(inplace = True, drop = True)
+    intercept = intercept[0]
+
+    if model == 'density_mean ~ mindist_inv2_mean':
+        model_density = intercept + beta*(1/pow(model_mindist,2))
+    elif model == 'density_mean ~ mindist_inv_mean':
+        model_density = intercept + beta*(1/model_mindist)
+    else: 
+        model_density = np.nan
+    
+    return model_density
+    
+
 
 #-----------------------------------#
 #            DEFINITIONS            # 
@@ -115,15 +135,19 @@ data_folder = r'C:\Users\admin\Documents\MyDoc\Aktivity\A_pedestrian_dimension\P
 experimental_code = r'\bottleneck'
 experimental_rounds = ['_25ped_1', '_25ped_2','_25ped_3','_43ped_1','_43ped_2','_43ped_3','_43ped_4','_43ped_5']
 
-detector = [0,150,-75,75]       # x_1, x_2, y_1, y_2
-attractor = [0,0]               # x,y
-vedge_angle = np.pi/3           # 60 degree left and right
+valid_time = [[0, 17.5], [4, 22], [15, 32], [3, 32], [3, 33], [8, 36], [3, 30], [2, 29]]
+
+detector = [0, 150, -75, 75]       # x_1, x_2, y_1, y_2
+attractor = [0, 0]                 # x, y
+vedge_angle = np.pi/3              # 60 degree left and right
 
 regress_summary_all = pd.DataFrame()
 
        
+
+
 #-----------------------------------#
-#            CALCULATIONS           # 
+#              ANALYSIS             # 
 #-----------------------------------#
 
 
@@ -131,7 +155,7 @@ rep = range(len(experimental_rounds))
  
 for rn in rep:
 
-    #  DATA PREPARATION 
+    # DATA PREPARATION 
     full_file_name = data_folder + experimental_code + experimental_rounds[rn] + '.csv'
     positions = pd.read_csv(full_file_name)
     positions.rename(columns = {'time(s)': 'time', 'x(cm)': 'x', 'y(cm)': 'y', 'density(m-2)': 'density'}, inplace = True)
@@ -140,10 +164,14 @@ for rn in rep:
 
     # TO DO: CALCULATE VORONOI DENSITY 
                                      
+    # CALCULATIONS
     positions_nearest = calculate_min_dist_vedge(positions)                                               
 
     records_det = calculate_detector_means(positions_nearest, positions, detector)
+    
+    records_det = records_det[(records_det.time > valid_time[rn][0]) & (records_det.time < valid_time[rn][1])]
 
+    # MODELS
     regress_summary = run_regression(records_det, model = 'density_mean ~ mindist_inv_mean', intercept = True)
     regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)    
     regress_summary = run_regression(records_det, model = 'density_mean ~ mindist_inv2_mean', intercept = True)
@@ -161,12 +189,29 @@ for rn in rep:
     regress_summary = run_regression(records_det, model = 'density_mean ~ mindist_mean_inv2', intercept = False)
     regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)  
     
-    
     regress_summary = run_regression(records_det, model = 'density_mean_log ~ mindist_mean_log', intercept = True)
     regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)  
     regress_summary = run_regression(records_det, model = 'density_mean_log ~ mindist_log_mean', intercept = True)
     regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True) 
 
+    # FIT CURVE AND PLOT
+    
+    experimental_round = experimental_rounds[rn]
+    
+    model_mindist = np.arange(30, 170, 1)
+
+    plt.scatter(1/records_det.mindist_inv_mean, records_det.density_mean, label = 'density vs mindist: detector', alpha = 0.5, s = 20)
+
+    model = 'density_mean ~ mindist_inv2_mean'
+    model_density = fit_model(regress_summary_all, experimental_round, model, model_mindist)
+    plt.plot(model_mindist, model_density, 'r-', label = model)
+
+    model = 'density_mean ~ mindist_inv_mean'
+    model_density = fit_model(regress_summary_all, experimental_round, model, model_mindist)
+    plt.plot(model_mindist, model_density, 'g-', label = model)
+
+    plt.legend()
+    plt.show()
 
 
 
@@ -176,48 +221,9 @@ for rn in rep:
 
 
 
-experimental_round = '_43ped_5'
-
-
-plt.scatter(1/records_det.mindist_inv_mean, records_det.density_mean, label = 'density vs mindist: detector')
-
-model_mindist = np.arange(30, 170, 1)
-
-model = 'density_mean ~ mindist_inv2_mean'
-
-beta = regress_summary_all[(regress_summary_all.exp_round == experimental_round) 
-                        & (regress_summary_all.model == model)].beta
-beta.reset_index(inplace = True, drop = True)
-beta = beta[0]
-intercept = regress_summary_all[(regress_summary_all.exp_round == experimental_round) 
-                        & (regress_summary_all.model == model)].intercept
-intercept.reset_index(inplace = True, drop = True)
-intercept = intercept[0]
-
-model_density = intercept + beta*(1/pow(model_mindist,2))
-
-plt.plot(model_mindist, model_density, 'r-', label = model)
 
 
 
-model = 'density_mean ~ mindist_inv_mean'
-
-beta = regress_summary_all[(regress_summary_all.exp_round == experimental_round) 
-                        & (regress_summary_all.model == model)].beta
-beta.reset_index(inplace = True, drop = True)
-beta = beta[0]
-intercept = regress_summary_all[(regress_summary_all.exp_round == experimental_round) 
-                        & (regress_summary_all.model == model)].intercept
-intercept.reset_index(inplace = True, drop = True)
-intercept = intercept[0]
-
-model_density = intercept + beta*(1/model_mindist)
-
-plt.plot(model_mindist, model_density, 'g-', label = model)
-
-
-plt.legend()
-plt.show()
 
 
 
@@ -230,12 +236,12 @@ plt.show()
 # voronoi? https://pymesh.readthedocs.io/en/latest/api_mesh_generation.html
 
 # příklad meshgrid
-a = np.arange(-10, 10, 0.1)  
-b = np.arange(-10, 10, 0.1)  
-xa, xb = np.meshgrid(a, b, sparse=True)  
-z = np.sin(xa**2 + xb**2) / (xa**2 + xb**2)  
-h = plt.contourf(a,b,z)  
-plt.show()  
+#a = np.arange(-10, 10, 0.1)  
+#b = np.arange(-10, 10, 0.1)  
+#xa, xb = np.meshgrid(a, b, sparse=True)  
+#z = np.sin(xa**2 + xb**2) / (xa**2 + xb**2)  
+#h = plt.contourf(a,b,z)  
+#plt.show()  
 
 
 
