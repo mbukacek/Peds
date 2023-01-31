@@ -160,7 +160,7 @@ def plot_fits(records_det, regress_summary_all, experimental_round):
     # TO DO : normalize time for vizualization
     # TO DO : use triangles for 25 peds
 
-    img = plt.scatter(1/records_det.mindist_inv_mean, records_det.density_mean, c = records_det.time, 
+    img = plt.scatter(1/records_det.mindist_inv_mean, records_det.density_mean, c = records_det.normalized_time, 
                       label = 'density vs mindist: detector', alpha = 0.5, s = 20)
     
     plt.colorbar(img)
@@ -179,9 +179,11 @@ def plot_fits(records_det, regress_summary_all, experimental_round):
     plt.xlim(20, 200)
     plt.ylim(-0.5, 7.5)
     plt.legend()
+    plt.savefig(export_folder + '\mindist_dens_' + experimental_round, dpi = 1200)
     plt.show()
 
-    return img
+
+    return img      # TO DO: propper handling of image object
 
 
 
@@ -190,6 +192,8 @@ def plot_fits(records_det, regress_summary_all, experimental_round):
 #-----------------------------------#
 
 data_folder = r'C:\Users\admin\Documents\MyDoc\Aktivity\A_pedestrian_dimension\Pedestrian_dimension_code\Data_out_of_git'
+
+export_folder = r'C:\Users\admin\Documents\MyDoc\Aktivity\A_pedestrian_dimension\Pedestrian_dimension_code\Exports'
 
 experimental_code = r'\bottleneck'
 experimental_rounds = ['_25ped_1', '_25ped_2','_25ped_3','_43ped_1','_43ped_2','_43ped_3','_43ped_4','_43ped_5']
@@ -230,9 +234,13 @@ for rn in rep:
 
     records_det = calculate_detector_means(positions_nearest, positions, detector)
     
+    # TO DO: add model corresponding to best aplha (1.83)
+    
     records_det = records_det[(records_det.time > valid_time[rn][0]) & (records_det.time < valid_time[rn][1])]
-
+    
+    records_det['normalized_time'] = (records_det.time - min(records_det.time))/(max(records_det.time)- min(records_det.time))
     records_det['round'] = experimental_rounds[rn]
+    
     records_det_all = records_det_all.append(records_det, ignore_index = True)  
 
     # MODELS
@@ -249,13 +257,7 @@ for rn in rep:
 
 regress_summary_all = regress_all_models(regress_summary_all, records_det_all, experimental_code, experimental_round = 'all')
 
-plot_fits(records_det_all, regress_summary_all, experimental_round = 'all')
-
-
-
-
-
-
+img = plot_fits(records_det_all, regress_summary_all, experimental_round = 'all')
 
 
 
