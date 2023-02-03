@@ -26,6 +26,7 @@ def calculate_min_dist_vedge(positions):
 
     positions_nearest['mindist_inv'] = 1/positions_nearest.mindist
     positions_nearest['mindist_inv2'] = 1/pow(positions_nearest.mindist,2)
+    positions_nearest['mindist_inv184'] = 1/pow(positions_nearest.mindist,1.84)
     positions_nearest['mindist_log'] = np.log(positions_nearest.mindist)
     
     return positions_nearest
@@ -44,6 +45,7 @@ def calculate_detector_means(positions_nearest, positions, detector):
                           'mindist': 'mindist_mean', 
                           'mindist_inv': 'mindist_inv_mean', 
                           'mindist_inv2': 'mindist_inv2_mean',
+                          'mindist_inv184': 'mindist_inv184_mean',
                           'mindist_log': 'mindist_log_mean'
                           }, 
                inplace = True)
@@ -51,7 +53,7 @@ def calculate_detector_means(positions_nearest, positions, detector):
     tmp2 = positions_det.groupby(['time'], as_index=False).count()                              # based on full sample
     tmp2.rename(columns = {'ped': 'ped_cnt'}, inplace = True)
 
-    records_det = pd.merge(tmp[['time', 'density_mean', 'mindist_mean', 'mindist_inv_mean', 'mindist_inv2_mean', 'mindist_log_mean']], 
+    records_det = pd.merge(tmp[['time', 'density_mean', 'mindist_mean', 'mindist_inv_mean', 'mindist_inv2_mean', 'mindist_inv184_mean', 'mindist_log_mean']], 
                            tmp2[['time', 'ped_cnt']], how = 'inner', on = 'time')
 
     records_det['mindist_mean_inv'] = 1/records_det.mindist_mean
@@ -109,6 +111,8 @@ def regress_all_models(regress_summary_all, records_det, experimental_code, expe
     
     regress_summary = run_regression(records_det, experimental_code, experimental_round, model = 'density_mean ~ mindist_inv_mean', intercept = True)
     regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)    
+    regress_summary = run_regression(records_det, experimental_code, experimental_round, model = 'density_mean ~ mindist_inv184_mean', intercept = True)
+    regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)    
     regress_summary = run_regression(records_det, experimental_code, experimental_round, model = 'density_mean ~ mindist_inv2_mean', intercept = True)
     regress_summary_all = regress_summary_all.append(regress_summary, ignore_index = True)  
     regress_summary = run_regression(records_det, experimental_code, experimental_round, model = 'density_mean ~ mindist_mean_inv', intercept = True)
@@ -147,6 +151,8 @@ def fit_model(regress_summary_all, experimental_round, model, model_mindist):
         model_density = intercept + beta*(1/pow(model_mindist,2))
     elif model == 'density_mean ~ mindist_inv_mean':
         model_density = intercept + beta*(1/model_mindist)
+    elif model == 'density_mean ~ mindist_inv184_mean':
+        model_density = intercept + beta*(1/pow(model_mindist,1.84))
     else: 
         model_density = np.nan
     
@@ -258,6 +264,47 @@ for rn in rep:
 regress_summary_all = regress_all_models(regress_summary_all, records_det_all, experimental_code, experimental_round = 'all')
 
 img = plot_fits(records_det_all, regress_summary_all, experimental_round = 'all')
+
+
+
+
+
+
+# charts for PED abstract: log vs regular
+
+experimental_round = 'all'
+model_mindist = np.arange(30, 170, 1)
+
+img = plt.scatter(1/records_det_all.mindist_inv_mean, records_det_all.density_mean, c = records_det_all.normalized_time, 
+                     label = r'$\rho \,\, vs \,\, d_{\mathrm{min}}: \mathrm{detector}$', alpha = 0.5, s = 20)   
+plt.colorbar(img)
+ax = plt.gca()
+ax.set_yscale('log')
+ax.set_xscale('log')
+
+model = 'density_mean ~ mindist_inv2_mean'
+model_density = fit_model(regress_summary_all, experimental_round, model, model_mindist)
+plt.plot(model_mindist, model_density, 'r-', label = r'$\rho \sim 1 /  d_{\mathrm{min}}^2$')
+
+model = 'density_mean ~ mindist_inv184_mean'
+model_density = fit_model(regress_summary_all, experimental_round, model, model_mindist)
+plt.plot(model_mindist, model_density, 'b-', label = r'$\rho \sim 1 /  d_{\mathrm{min}}^{1.84}$')
+
+model = 'density_mean ~ mindist_inv_mean'
+model_density = fit_model(regress_summary_all, experimental_round, model, model_mindist)
+plt.plot(model_mindist, model_density, 'g-', label = r'$\rho \sim 1 /  d_{\mathrm{min}}$')
+
+#plt.title(experimental_round)
+plt.xlabel(r'$d_{\mathrm{min}} \,\,\mathrm{[cm]}$')
+plt.ylabel(r'$\rho \,\,\, \mathrm{[ped/m}^2\mathrm{]}$')
+plt.xlim(25, 200)
+plt.ylim(0.05, 8)
+plt.legend()
+plt.gcf().set_size_inches(9, 4)
+
+#plt.savefig(export_folder + '\mindist_dens_' + experimental_round + '_new', dpi = 1200)
+plt.savefig(export_folder + '\mindist_dens_' + experimental_round + '_new_log', dpi = 1200)
+plt.show()
 
 
 
