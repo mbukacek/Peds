@@ -278,9 +278,9 @@ model_mindist = np.arange(30, 170, 1)
 img = plt.scatter(1/records_det_all.mindist_inv_mean, records_det_all.density_mean, c = records_det_all.normalized_time, 
                      label = r'$\rho \,\, vs \,\, d_{\mathrm{min}}: \mathrm{detector}$', alpha = 0.5, s = 20)   
 plt.colorbar(img)
-ax = plt.gca()
-ax.set_yscale('log')
-ax.set_xscale('log')
+#ax = plt.gca()
+#ax.set_yscale('log')
+#ax.set_xscale('log')
 
 model = 'density_mean ~ mindist_inv2_mean'
 model_density = fit_model(regress_summary_all, experimental_round, model, model_mindist)
@@ -305,6 +305,64 @@ plt.gcf().set_size_inches(9, 4)
 #plt.savefig(export_folder + '\mindist_dens_' + experimental_round + '_new', dpi = 1200)
 plt.savefig(export_folder + '\mindist_dens_' + experimental_round + '_new_log', dpi = 1200)
 plt.show()
+
+
+
+
+
+# charts for PED abstract: TRUE LOG
+
+	
+#all	 density_mean ~ mindist_inv2_mean	-0.0513	   6875.5049
+#all	 density_mean ~ mindist_inv_mean	-2.353      266.4909
+#all	 density_mean ~ mindist_inv184_mean	-0.2699	   4023.7585
+
+model = 'density_mean_log ~ mindist_mean_log',
+
+
+experimental_round = 'all'
+
+img = plt.scatter(records_det_all.mindist_mean_log, records_det_all.density_mean_log, c = records_det_all.normalized_time, 
+                     label = r'$\rho \,\, vs \,\, d_{\mathrm{min}}: \mathrm{detector}$', alpha = 0.5, s = 20)   
+plt.colorbar(img)
+
+#ax = plt.gca()
+#ax.set_yscale('log')
+#ax.set_xscale('log')
+
+model_mindist = np.arange(3.5, 5.5, 1.9)
+
+model = 'density_mean ~ mindist_inv2_mean'
+model_density = np.log(6875.5049) - 2*model_mindist 
+plt.plot(model_mindist, model_density, 'r-', label = r'$\rho \sim 1 /  d_{\mathrm{min}}^2$')
+
+model = 'density_mean ~ mindist_inv184_mean'
+model_density = np.log(4023.7585) - 1.84*model_mindist -0.1
+plt.plot(model_mindist, model_density, 'b-', label = r'$\rho \sim 1 /  d_{\mathrm{min}}^{1.84}$')
+
+model = 'density_mean ~ mindist_inv_mean'
+model_density = np.log(266.4909) - 1*model_mindist - 0.8
+plt.plot(model_mindist, model_density, 'g-', label = r'$\rho \sim 1 /  d_{\mathrm{min}}$')
+
+#plt.title(experimental_round)
+plt.xlabel(r'$log(d_{\mathrm{min}}) \,\,\mathrm{[cm]}$')
+plt.ylabel(r'$log(\rho) \,\,\, \mathrm{[ped/m}^2\mathrm{]}$')
+plt.xlim(3.4, 5.6)
+plt.ylim(-3, 2.2)
+plt.legend()
+plt.gcf().set_size_inches(9, 4)
+
+#plt.savefig(export_folder + '\mindist_dens_' + experimental_round + '_new', dpi = 1200)
+plt.savefig(export_folder + '\mindist_dens_' + experimental_round + '_new_log_t', dpi = 1200)
+plt.show()
+
+
+
+
+
+
+
+
 
 
 
